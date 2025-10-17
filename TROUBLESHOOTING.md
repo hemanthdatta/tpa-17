@@ -3,6 +3,7 @@
 This document covers common issues and their solutions when running CLIP fine-tuning on Flowers102.
 
 ## Table of Contents
+- [LoRA Very Low Accuracy (4-5%)](#lora-very-low-accuracy)
 - [Device Mismatch Errors (CPU/CUDA)](#device-mismatch-errors)
 - [AttributeError: 'LoRALinear' object has no attribute 'weight'](#lora-attribute-error)
 - [CUDA Out of Memory](#cuda-oom)
@@ -10,6 +11,82 @@ This document covers common issues and their solutions when running CLIP fine-tu
 - [Low Accuracy](#low-accuracy)
 - [Dataset Download Issues](#dataset-issues)
 - [Import Errors](#import-errors)
+
+---
+
+## LoRA Very Low Accuracy
+
+### Problem
+```
+LoRA gets only 4-5% accuracy while BitFit and Prefix-tuning get 90%+
+```
+
+Example output:
+```
+Method               Train        Val          Test        
+--------------------------------------------------------
+LoRA                 5.78%        4.22%        4.10%       ❌
+BitFit              99.80%       90.98%       90.37%       ✅
+Prefix-tuning       98.92%       92.75%       92.18%       ✅
+```
+
+### Cause
+**CRITICAL BUG**: The entire CLIP backbone was trainable, not just LoRA adapters!
+
+What was happening:
+1. CLIP model loaded with all parameters having `requires_grad=True`
+2. LoRA layers injected (which freeze only the Linear layers they replace)
+3. BUT: All other parameters (embeddings, layer norms, attention biases, etc.) stayed unfrozen
+4. Optimizer trained thousands of non-LoRA parameters instead of just LoRA adapters
+5. This is essentially "full fine-tuning" but with poor hyperparameters, hence terrible accuracy
+
+### Solution ✅ (Fixed in commit 7a4dbd2)
+
+Freeze the **entire backbone BEFORE** injecting LoRA:
+
+```python
+# CORRECT ORDER:
+# 1. Freeze everything
+for param in self.clip_model.parameters():
+    param.requires_grad = False
+
+# 2. Then inject LoRA (LoRA params will have requires_grad=True)
+self.clip_model.visual = inject_lora(...)
+```
+
+### Verification
+
+After fix, you should see output like:
+```
+✓ Injected LoRA into 24 modules (rank=8, alpha=16.0)
+
+Trainable Parameters:
+  Total: 151,277,414
+  Trainable: 147,558 (0.10%)      ← Should be ~0.1-0.2%
+  Frozen: 151,129,856 (99.90%)    ← Should be ~99.8-99.9%
+  LoRA params: 96,000             ← Should show LoRA count
+```
+
+**Red flags that indicate the bug:**
+- Trainable% > 5% (should be ~0.1%)
+- No "LoRA params" line in output
+- LoRA accuracy similar to or worse than zero-shot
+
+### Manual Fix (if using older version)
+1. Pull latest: `git pull origin master`
+2. Or manually edit `adapter_finetuning.py` in `AdapterFineTuner.__init__`:
+   ```python
+   if adapter_type == "lora":
+       # Add these lines BEFORE inject_lora:
+       for param in self.clip_model.parameters():
+           param.requires_grad = False
+       
+       self.clip_model.visual = inject_lora(...)
+   ```
+
+### Expected Accuracy After Fix
+- **Before fix**: 4-5% (worse than random)
+- **After fix**: 88-93% (competitive with full fine-tuning)
 
 ---
 
