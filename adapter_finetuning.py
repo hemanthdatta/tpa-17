@@ -326,6 +326,11 @@ class AdapterFineTuner:
         self.prefix_encoder = None
         if adapter_type == "lora":
             print(f"Applying LoRA with rank={lora_rank}, alpha={lora_alpha}")
+            # CRITICAL: Freeze entire backbone first
+            for param in self.clip_model.parameters():
+                param.requires_grad = False
+            
+            # Then inject LoRA (which will have requires_grad=True)
             self.clip_model.visual = inject_lora(
                 self.clip_model.visual,
                 rank=lora_rank,
@@ -338,6 +343,11 @@ class AdapterFineTuner:
             self.clip_model.visual = apply_bitfit(self.clip_model.visual)
         elif adapter_type == "prefix":
             print(f"Applying Prefix-tuning with {num_prefix_tokens} tokens")
+            # CRITICAL: Freeze entire backbone first
+            for param in self.clip_model.parameters():
+                param.requires_grad = False
+            
+            # Then inject prefix-tuning
             self.clip_model.visual, self.prefix_encoder = inject_prefix_tuning(
                 self.clip_model.visual,
                 num_prefix_tokens,
@@ -362,11 +372,14 @@ class AdapterFineTuner:
         """Print number of trainable parameters"""
         trainable_params = 0
         all_params = 0
+        lora_params = 0
         
-        for _, param in self.clip_model.named_parameters():
+        for name, param in self.clip_model.named_parameters():
             all_params += param.numel()
             if param.requires_grad:
                 trainable_params += param.numel()
+                if 'lora' in name.lower():
+                    lora_params += param.numel()
         
         for _, param in self.classifier.named_parameters():
             all_params += param.numel()
@@ -377,9 +390,13 @@ class AdapterFineTuner:
                 all_params += param.numel()
                 trainable_params += param.numel()
         
-        print(f"Trainable params: {trainable_params:,} || "
-              f"All params: {all_params:,} || "
-              f"Trainable%: {100 * trainable_params / all_params:.4f}%")
+        print(f"\nTrainable Parameters:")
+        print(f"  Total: {all_params:,}")
+        print(f"  Trainable: {trainable_params:,} ({100 * trainable_params / all_params:.2f}%)")
+        print(f"  Frozen: {all_params - trainable_params:,} ({100 * (all_params - trainable_params) / all_params:.2f}%)")
+        if lora_params > 0:
+            print(f"  LoRA params: {lora_params:,}")
+        print()
     
     def forward(self, images):
         """Forward pass through model"""
