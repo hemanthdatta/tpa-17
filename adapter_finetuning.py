@@ -80,10 +80,24 @@ class LoRALinear(nn.Module):
             dropout
         )
         
+        # Store dimensions for compatibility
+        self.in_features = linear.in_features
+        self.out_features = linear.out_features
+        
         # Freeze original weights
         self.linear.weight.requires_grad = False
         if self.linear.bias is not None:
             self.linear.bias.requires_grad = False
+    
+    @property
+    def weight(self):
+        """Expose weight attribute for compatibility with MultiheadAttention"""
+        return self.linear.weight
+    
+    @property
+    def bias(self):
+        """Expose bias attribute for compatibility with MultiheadAttention"""
+        return self.linear.bias
     
     def forward(self, x):
         """Forward pass: frozen linear + LoRA"""
@@ -98,29 +112,47 @@ def inject_lora(model: nn.Module, rank: int = 8, alpha: float = 16.0, target_mod
         model: Model to inject LoRA into
         rank: Rank of LoRA matrices
         alpha: LoRA alpha parameter
-        target_modules: List of module names to target (e.g., ['q_proj', 'v_proj'])
+        target_modules: List of module names to target
     
     Returns:
         Modified model with LoRA layers
     """
     if target_modules is None:
-        target_modules = ['q_proj', 'v_proj', 'out_proj']  # Default for vision transformers
+        # Target MLP layers in OpenCLIP Vision Transformer
+        # These are safer to replace than attention projections
+        target_modules = ['mlp.c_fc', 'mlp.c_proj']
     
-    for name, module in model.named_modules():
+    lora_modules_added = 0
+    
+    for name, module in list(model.named_modules()):
         if isinstance(module, nn.Linear):
             # Check if this module should be adapted
-            should_adapt = any(target in name for target in target_modules)
+            # Use exact matching for better control
+            module_type = name.split('.')[-1] if '.' in name else name
+            parent_context = '.'.join(name.split('.')[-2:]) if len(name.split('.')) >= 2 else name
+            
+            should_adapt = any(target in parent_context for target in target_modules)
             
             if should_adapt:
-                # Get parent module and attribute name
-                *parent_path, attr_name = name.split('.')
-                parent = model
-                for p in parent_path:
-                    parent = getattr(parent, p)
-                
-                # Replace with LoRA linear
-                lora_linear = LoRALinear(module, rank, alpha)
-                setattr(parent, attr_name, lora_linear)
+                try:
+                    # Get parent module and attribute name
+                    *parent_path, attr_name = name.split('.')
+                    parent = model
+                    for p in parent_path:
+                        parent = getattr(parent, p)
+                    
+                    # Replace with LoRA linear
+                    lora_linear = LoRALinear(module, rank, alpha)
+                    setattr(parent, attr_name, lora_linear)
+                    lora_modules_added += 1
+                except Exception as e:
+                    print(f"Warning: Could not inject LoRA into {name}: {e}")
+                    continue
+    
+    print(f"✓ Injected LoRA into {lora_modules_added} modules (rank={rank}, alpha={alpha})")
+    
+    if lora_modules_added == 0:
+        print("⚠ Warning: No LoRA modules were added! Check target_modules pattern.")
     
     return model
 
