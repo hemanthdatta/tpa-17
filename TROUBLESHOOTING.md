@@ -3,12 +3,53 @@
 This document covers common issues and their solutions when running CLIP fine-tuning on Flowers102.
 
 ## Table of Contents
+- [Device Mismatch Errors (CPU/CUDA)](#device-mismatch-errors)
 - [AttributeError: 'LoRALinear' object has no attribute 'weight'](#lora-attribute-error)
 - [CUDA Out of Memory](#cuda-oom)
 - [Slow Training](#slow-training)
 - [Low Accuracy](#low-accuracy)
 - [Dataset Download Issues](#dataset-issues)
 - [Import Errors](#import-errors)
+
+---
+
+## Device Mismatch Errors
+
+### Problem
+```
+RuntimeError: Expected all tensors to be on the same device, but got mat2 is on cpu, 
+different from other tensors on cuda:0
+```
+
+### Cause
+This occurs when LoRA parameters are initialized on CPU but the model is on GPU. This happens because:
+1. Model is moved to CUDA first
+2. LoRA layers are injected (creating new parameters on CPU)
+3. The new parameters aren't automatically moved to GPU
+
+### Solution ✅ (Fixed in latest version)
+The model is now moved to the device AFTER adapter injection:
+
+```python
+# After injecting LoRA
+self.clip_model = self.clip_model.to(device)
+```
+
+### Manual Fix (if using older version)
+1. Pull latest changes: `git pull origin master`
+2. Or add this line after adapter injection in `AdapterFineTuner.__init__`:
+   ```python
+   self.clip_model = self.clip_model.to(device)
+   ```
+
+### Verification
+Check that all parameters are on GPU:
+```python
+for name, param in model.named_parameters():
+    print(f"{name}: {param.device}")
+```
+
+All should show `cuda:0` (or your GPU device).
 
 ---
 

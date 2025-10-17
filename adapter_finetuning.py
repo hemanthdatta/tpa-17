@@ -331,6 +331,8 @@ class AdapterFineTuner:
                 rank=lora_rank,
                 alpha=lora_alpha
             )
+            # Move model to device after LoRA injection
+            self.clip_model = self.clip_model.to(device)
         elif adapter_type == "bitfit":
             print("Applying BitFit (bias-only training)")
             self.clip_model.visual = apply_bitfit(self.clip_model.visual)
@@ -343,6 +345,8 @@ class AdapterFineTuner:
             )
             if self.prefix_encoder is not None:
                 self.prefix_encoder = self.prefix_encoder.to(device)
+            # Move model to device after prefix injection
+            self.clip_model = self.clip_model.to(device)
         else:
             raise ValueError(f"Unknown adapter type: {adapter_type}")
         
