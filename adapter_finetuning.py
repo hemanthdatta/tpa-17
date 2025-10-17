@@ -118,20 +118,37 @@ def inject_lora(model: nn.Module, rank: int = 8, alpha: float = 16.0, target_mod
         Modified model with LoRA layers
     """
     if target_modules is None:
-        # Target MLP layers in OpenCLIP Vision Transformer
-        # These are safer to replace than attention projections
-        target_modules = ['mlp.c_fc', 'mlp.c_proj']
+        # Target BOTH attention QKV projections AND MLP layers
+        # This is critical for Vision Transformers to learn effectively
+        target_modules = [
+            'in_proj',      # Attention Q,K,V combined projection
+            'out_proj',     # Attention output projection  
+            'mlp.c_fc',     # MLP first layer
+            'mlp.c_proj'    # MLP second layer
+        ]
     
     lora_modules_added = 0
+    lora_attention_modules = 0
+    lora_mlp_modules = 0
+    
+    # First, let's examine the structure
+    print("\n🔍 Scanning model structure for LoRA injection...")
     
     for name, module in list(model.named_modules()):
         if isinstance(module, nn.Linear):
             # Check if this module should be adapted
-            # Use exact matching for better control
-            module_type = name.split('.')[-1] if '.' in name else name
-            parent_context = '.'.join(name.split('.')[-2:]) if len(name.split('.')) >= 2 else name
+            should_adapt = False
+            module_category = "other"
             
-            should_adapt = any(target in parent_context for target in target_modules)
+            # More flexible matching
+            for target in target_modules:
+                if target in name:
+                    should_adapt = True
+                    if 'attn' in name or 'proj' in name:
+                        module_category = "attention"
+                    elif 'mlp' in name:
+                        module_category = "mlp"
+                    break
             
             if should_adapt:
                 try:
@@ -141,18 +158,38 @@ def inject_lora(model: nn.Module, rank: int = 8, alpha: float = 16.0, target_mod
                     for p in parent_path:
                         parent = getattr(parent, p)
                     
+                    # Check if parent is nn.Sequential or similar
+                    original_module = getattr(parent, attr_name)
+                    
                     # Replace with LoRA linear
-                    lora_linear = LoRALinear(module, rank, alpha)
+                    lora_linear = LoRALinear(original_module, rank, alpha)
                     setattr(parent, attr_name, lora_linear)
                     lora_modules_added += 1
+                    
+                    if module_category == "attention":
+                        lora_attention_modules += 1
+                    elif module_category == "mlp":
+                        lora_mlp_modules += 1
+                        
+                    print(f"  ✓ Added LoRA to: {name} ({module_category})")
+                    
                 except Exception as e:
-                    print(f"Warning: Could not inject LoRA into {name}: {e}")
+                    print(f"  ⚠ Could not inject LoRA into {name}: {e}")
                     continue
     
-    print(f"✓ Injected LoRA into {lora_modules_added} modules (rank={rank}, alpha={alpha})")
+    print(f"\n✅ LoRA Injection Summary:")
+    print(f"  Total modules: {lora_modules_added}")
+    print(f"  Attention modules: {lora_attention_modules}")
+    print(f"  MLP modules: {lora_mlp_modules}")
+    print(f"  Rank: {rank}, Alpha: {alpha}\n")
     
     if lora_modules_added == 0:
-        print("⚠ Warning: No LoRA modules were added! Check target_modules pattern.")
+        print("⚠️  WARNING: No LoRA modules were added!")
+        print("  This will result in poor performance. Checking available modules...")
+        print("\n📋 Available Linear modules in model:")
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                print(f"    - {name}")
     
     return model
 
@@ -413,7 +450,7 @@ class AdapterFineTuner:
         train_loader,
         val_loader,
         num_epochs: int = config.NUM_EPOCHS,
-        learning_rate: float = 1e-3,
+        learning_rate: float = None,
         weight_decay: float = 1e-4,
         patience: int = config.PATIENCE
     ) -> dict:
@@ -431,6 +468,19 @@ class AdapterFineTuner:
         Returns:
             Dictionary with training history
         """
+        # Adapter-specific learning rates
+        if learning_rate is None:
+            if self.adapter_type == "lora":
+                learning_rate = 2e-4  # Lower LR for LoRA, more stable
+            elif self.adapter_type == "bitfit":
+                learning_rate = 1e-3  # Higher for bias-only
+            elif self.adapter_type == "prefix":
+                learning_rate = 5e-4  # Medium for prefix
+            else:
+                learning_rate = 1e-3
+        
+        print(f"Using learning rate: {learning_rate:.2e} for {self.adapter_type}")
+        
         # Setup optimizer
         trainable_params = []
         for param in self.clip_model.parameters():
@@ -620,15 +670,21 @@ class AdapterFineTuner:
         print(f"Model saved to {path}")
 
 
-def run_adapter_finetuning(adapter_type: str = "lora"):
+def run_adapter_finetuning(adapter_type: str = "lora", lora_rank: int = 16, lora_alpha: float = 32.0):
     """
     Main function to run adapter fine-tuning
     
     Args:
         adapter_type: Type of adapter ("lora", "bitfit", "prefix")
+        lora_rank: Rank for LoRA (default 16, higher = more capacity)
+        lora_alpha: Alpha for LoRA (default 32, typically 2*rank)
     """
-    # Initialize fine-tuner
-    finetuner = AdapterFineTuner(adapter_type=adapter_type)
+    # Initialize fine-tuner with increased rank for better performance
+    finetuner = AdapterFineTuner(
+        adapter_type=adapter_type,
+        lora_rank=lora_rank,
+        lora_alpha=lora_alpha
+    )
     
     # Get data loaders with CLIP preprocessing
     train_loader, val_loader, test_loader = get_flowers_dataloaders(
