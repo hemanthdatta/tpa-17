@@ -1,5 +1,5 @@
 """
-Configuration file for CLIP experiments on Flowers dataset
+Configuration file for CLIP experiments on PlantVillage Crop Disease dataset
 """
 
 import torch
@@ -10,9 +10,14 @@ CLIP_PRETRAINED = "laion2b_s34b_b79k"  # Pre-trained weights
 
 # Data Configuration
 DATA_ROOT = "./data"
-DATASET_NAME = "flowers102"
+DATASET_NAME = "plantvillage"
 BATCH_SIZE = 32
 NUM_WORKERS = 4
+
+# Low-data regime configuration (for domain-specific fine-tuning)
+# This simulates limited labeled data scenario as per project requirements
+SAMPLES_PER_CLASS = 50  # Number of training samples per class (50-100 recommended for low-data regime)
+USE_LIMITED_DATA = True  # Enable limited data mode
 
 # Training Configuration (for Linear Probing)
 LEARNING_RATE = 1e-3
@@ -28,35 +33,53 @@ RESULTS_DIR = "./results"
 SAVE_CHECKPOINT = True
 
 # Zero-shot Configuration
-# Flower class names for Oxford Flowers 102 dataset
-FLOWER_CLASSES = [
-    "pink primrose", "hard-leaved pocket orchid", "canterbury bells", "sweet pea", 
-    "english marigold", "tiger lily", "moon orchid", "bird of paradise", "monkshood",
-    "globe thistle", "snapdragon", "colt's foot", "king protea", "spear thistle",
-    "yellow iris", "globe-flower", "purple coneflower", "peruvian lily", "balloon flower",
-    "giant white arum lily", "fire lily", "pincushion flower", "fritillary", "red ginger",
-    "grape hyacinth", "corn poppy", "prince of wales feathers", "stemless gentian",
-    "artichoke", "sweet william", "carnation", "garden phlox", "love in the mist",
-    "mexican aster", "alpine sea holly", "ruby-lipped cattleya", "cape flower",
-    "great masterwort", "siam tulip", "lenten rose", "barbeton daisy", "daffodil",
-    "sword lily", "poinsettia", "bolero deep blue", "wallflower", "marigold",
-    "buttercup", "oxeye daisy", "common dandelion", "petunia", "wild pansy",
-    "primula", "sunflower", "pelargonium", "bishop of llandaff", "gaura",
-    "geranium", "orange dahlia", "pink-yellow dahlia", "cautleya spicata",
-    "japanese anemone", "black-eyed susan", "silverbush", "californian poppy",
-    "osteospermum", "spring crocus", "bearded iris", "windflower", "tree poppy",
-    "gazania", "azalea", "water lily", "rose", "thorn apple", "morning glory",
-    "passion flower", "lotus lotus", "toad lily", "anthurium", "frangipani",
-    "clematis", "hibiscus", "columbine", "desert-rose", "tree mallow", "magnolia",
-    "cyclamen", "watercress", "canna lily", "hippeastrum", "bee balm", "ball moss",
-    "foxglove", "bougainvillea", "camellia", "mallow", "mexican petunia",
-    "bromelia", "blanket flower", "trumpet creeper", "blackberry lily"
+# PlantVillage disease class names
+PLANT_DISEASE_CLASSES = [
+    "Apple scab",
+    "Apple Black rot",
+    "Apple Cedar apple rust",
+    "Apple healthy",
+    "Blueberry healthy",
+    "Cherry Powdery mildew",
+    "Cherry healthy",
+    "Corn Cercospora leaf spot Gray leaf spot",
+    "Corn Common rust",
+    "Corn Northern Leaf Blight",
+    "Corn healthy",
+    "Grape Black rot",
+    "Grape Esca (Black Measles)",
+    "Grape Leaf blight (Isariopsis Leaf Spot)",
+    "Grape healthy",
+    "Orange Haunglongbing (Citrus greening)",
+    "Peach Bacterial spot",
+    "Peach healthy",
+    "Pepper bell Bacterial spot",
+    "Pepper bell healthy",
+    "Potato Early blight",
+    "Potato Late blight",
+    "Potato healthy",
+    "Raspberry healthy",
+    "Soybean healthy",
+    "Squash Powdery mildew",
+    "Strawberry Leaf scorch",
+    "Strawberry healthy",
+    "Tomato Bacterial spot",
+    "Tomato Early blight",
+    "Tomato Late blight",
+    "Tomato Leaf Mold",
+    "Tomato Septoria leaf spot",
+    "Tomato Spider mites Two-spotted spider mite",
+    "Tomato Target Spot",
+    "Tomato Tomato Yellow Leaf Curl Virus",
+    "Tomato Tomato mosaic virus",
+    "Tomato healthy"
 ]
 
-# Text templates for zero-shot classification
+# Text templates for zero-shot classification (agriculture/disease context)
 TEXT_TEMPLATES = [
     "a photo of a {}.",
-    "a photo of a flower, a type of {}.",
-    "a beautiful {}.",
-    "{} flower.",
+    "a photo of a plant leaf with {}.",
+    "a plant disease: {}.",
+    "{} on plant leaves.",
+    "agricultural crop with {}.",
 ]

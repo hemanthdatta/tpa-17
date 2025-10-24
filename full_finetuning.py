@@ -1,5 +1,5 @@
 """
-Full fine-tuning of CLIP model on Flowers102 dataset
+Full fine-tuning of CLIP model on PlantVillage dataset
 This method unfreezes all layers and trains the entire model end-to-end
 """
 
@@ -14,7 +14,7 @@ import numpy as np
 import os
 
 import config
-from data_loader import get_flowers_dataloaders
+from data_loader import get_plantvillage_dataloaders
 
 
 class FullFineTuner:
@@ -356,7 +356,7 @@ def run_full_finetuning(freeze_backbone: bool = False):
     finetuner = FullFineTuner(freeze_backbone=freeze_backbone)
     
     # Get data loaders with CLIP preprocessing
-    train_loader, val_loader, test_loader = get_flowers_dataloaders(
+    train_loader, val_loader, test_loader = get_plantvillage_dataloaders(
         use_clip_transforms=True,
         clip_preprocess=finetuner.preprocess
     )

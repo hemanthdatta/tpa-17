@@ -1,5 +1,5 @@
 """
-Linear probing on CLIP features for Flowers102 dataset
+Linear probing on CLIP features for PlantVillage dataset
 """
 
 import torch
@@ -13,7 +13,7 @@ import numpy as np
 import os
 
 import config
-from data_loader import get_flowers_dataloaders
+from data_loader import get_plantvillage_dataloaders
 
 
 class LinearClassifier(nn.Module):
@@ -297,7 +297,7 @@ def run_linear_probing():
     probe = LinearProbe()
     
     # Get data loaders with CLIP preprocessing
-    train_loader, val_loader, test_loader = get_flowers_dataloaders(
+    train_loader, val_loader, test_loader = get_plantvillage_dataloaders(
         use_clip_transforms=True,
         clip_preprocess=probe.preprocess
     )
