@@ -1,5 +1,5 @@
 """
-Zero-shot classification using CLIP on Flowers102 dataset
+Zero-shot classification using CLIP on PlantVillage dataset
 """
 
 import torch
@@ -10,7 +10,7 @@ from typing import List, Tuple
 import numpy as np
 
 import config
-from data_loader import get_flowers_dataloaders
+from data_loader import get_plantvillage_dataloaders
 
 
 class ZeroShotClassifier:
@@ -145,7 +145,7 @@ class ZeroShotClassifier:
         train_loader,
         val_loader,
         test_loader,
-        class_names: List[str] = config.FLOWER_CLASSES
+        class_names: List[str] = config.PLANT_DISEASE_CLASSES
     ) -> dict:
         """
         Evaluate zero-shot classification on all splits
@@ -154,7 +154,7 @@ class ZeroShotClassifier:
             train_loader: Training data loader
             val_loader: Validation data loader
             test_loader: Test data loader
-            class_names: List of class names
+            class_names: List of class names (plant disease classes)
         
         Returns:
             Dictionary with results for all splits
@@ -199,13 +199,13 @@ class ZeroShotClassifier:
 
 def run_zero_shot_evaluation():
     """
-    Main function to run zero-shot evaluation
+    Main function to run zero-shot evaluation on PlantVillage dataset
     """
     # Initialize classifier
     classifier = ZeroShotClassifier()
     
     # Get data loaders with CLIP preprocessing
-    train_loader, val_loader, test_loader = get_flowers_dataloaders(
+    train_loader, val_loader, test_loader = get_plantvillage_dataloaders(
         use_clip_transforms=True,
         clip_preprocess=classifier.preprocess
     )

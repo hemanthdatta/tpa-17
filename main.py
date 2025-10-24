@@ -1,10 +1,13 @@
 """
-Main script to run CLIP experiments on Flowers102 dataset
+Main script to run CLIP experiments on PlantVillage Crop Disease dataset
 Implements:
-1. Zero-shot evaluation
+1. Zero-shot evaluation (text-based and KNN-based)
 2. Linear probing
 3. Full fine-tuning
 4. Adapter fine-tuning (LoRA, BitFit, Prefix-tuning)
+
+Project Focus: Efficient fine-tuning of foundation models in low-data regimes
+for domain-specific tasks (plant disease classification)
 """
 
 import os
@@ -14,6 +17,7 @@ from datetime import datetime
 
 import config
 from zero_shot import run_zero_shot_evaluation
+from zero_shot_knn import run_knn_zero_shot_evaluation
 from linear_probe import run_linear_probing
 from full_finetuning import run_full_finetuning
 from adapter_finetuning import run_adapter_finetuning
@@ -29,17 +33,19 @@ from utils import (
 
 def run_experiments(args):
     """
-    Run CLIP experiments on Flowers102 dataset
+    Run CLIP experiments on PlantVillage Crop Disease dataset
     
     Args:
         args: Command line arguments
     """
     print("\n" + "="*70)
-    print("CLIP EXPERIMENTS ON FLOWERS102 DATASET")
+    print("CLIP EXPERIMENTS ON PLANTVILLAGE CROP DISEASE DATASET")
     print("="*70)
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Model: {config.CLIP_MODEL}")
     print(f"Pretrained: {config.CLIP_PRETRAINED}")
+    if config.USE_LIMITED_DATA:
+        print(f"Low-Data Regime: {config.SAMPLES_PER_CLASS} samples/class")
     print("="*70 + "\n")
     
     # Show device info
@@ -49,16 +55,48 @@ def run_experiments(args):
     os.makedirs(config.RESULTS_DIR, exist_ok=True)
     
     zero_shot_results = None
+    knn_zero_shot_results = None
     linear_probe_results = None
     full_finetune_results = None
     lora_results = None
     bitfit_results = None
     prefix_results = None
     
-    # Run zero-shot evaluation
+    # Run KNN zero-shot evaluation
+    if args.knn_zero_shot:
+        print("\n" + "="*70)
+        print("RUNNING KNN ZERO-SHOT EVALUATION")
+        print("="*70)
+        
+        knn_zero_shot_results = run_knn_zero_shot_evaluation(k_neighbors=args.k_neighbors)
+        
+        # Save results
+        save_results(
+            knn_zero_shot_results,
+            "knn_zero_shot_results.json"
+        )
+        
+        # Plot confusion matrix for test set
+        plot_confusion_matrix(
+            knn_zero_shot_results['test']['predictions'],
+            knn_zero_shot_results['test']['labels'],
+            config.PLANT_DISEASE_CLASSES,
+            title=f"KNN Zero-Shot Classification (k={args.k_neighbors}) - Test Set",
+            save_path=os.path.join(config.RESULTS_DIR, "knn_zero_shot_confusion_matrix.png")
+        )
+        
+        # Print classification report
+        print_classification_report(
+            knn_zero_shot_results['test']['predictions'],
+            knn_zero_shot_results['test']['labels'],
+            config.PLANT_DISEASE_CLASSES,
+            save_path=os.path.join(config.RESULTS_DIR, "knn_zero_shot_classification_report.txt")
+        )
+    
+    # Run zero-shot evaluation (text-based)
     if args.zero_shot:
         print("\n" + "="*70)
-        print("RUNNING ZERO-SHOT EVALUATION")
+        print("RUNNING TEXT-BASED ZERO-SHOT EVALUATION")
         print("="*70)
         
         zero_shot_results = run_zero_shot_evaluation()
@@ -73,8 +111,8 @@ def run_experiments(args):
         plot_confusion_matrix(
             zero_shot_results['test']['predictions'],
             zero_shot_results['test']['labels'],
-            config.FLOWER_CLASSES,
-            title="Zero-Shot Classification - Test Set",
+            config.PLANT_DISEASE_CLASSES,
+            title="Text-Based Zero-Shot Classification - Test Set",
             save_path=os.path.join(config.RESULTS_DIR, "zero_shot_confusion_matrix.png")
         )
         
@@ -82,7 +120,7 @@ def run_experiments(args):
         print_classification_report(
             zero_shot_results['test']['predictions'],
             zero_shot_results['test']['labels'],
-            config.FLOWER_CLASSES,
+            config.PLANT_DISEASE_CLASSES,
             save_path=os.path.join(config.RESULTS_DIR, "zero_shot_classification_report.txt")
         )
     
@@ -111,7 +149,7 @@ def run_experiments(args):
         plot_confusion_matrix(
             linear_probe_results['test']['predictions'],
             linear_probe_results['test']['labels'],
-            config.FLOWER_CLASSES,
+            config.PLANT_DISEASE_CLASSES,
             title="Linear Probing - Test Set",
             save_path=os.path.join(config.RESULTS_DIR, "linear_probe_confusion_matrix.png")
         )
@@ -120,7 +158,7 @@ def run_experiments(args):
         print_classification_report(
             linear_probe_results['test']['predictions'],
             linear_probe_results['test']['labels'],
-            config.FLOWER_CLASSES,
+            config.PLANT_DISEASE_CLASSES,
             save_path=os.path.join(config.RESULTS_DIR, "linear_probe_classification_report.txt")
         )
     
@@ -149,7 +187,7 @@ def run_experiments(args):
         plot_confusion_matrix(
             full_finetune_results['test']['predictions'],
             full_finetune_results['test']['labels'],
-            config.FLOWER_CLASSES,
+            config.PLANT_DISEASE_CLASSES,
             title="Full Fine-tuning - Test Set",
             save_path=os.path.join(config.RESULTS_DIR, "full_finetuning_confusion_matrix.png")
         )
@@ -176,7 +214,7 @@ def run_experiments(args):
         plot_confusion_matrix(
             lora_results['test']['predictions'],
             lora_results['test']['labels'],
-            config.FLOWER_CLASSES,
+            config.PLANT_DISEASE_CLASSES,
             title="LoRA Fine-tuning - Test Set",
             save_path=os.path.join(config.RESULTS_DIR, "lora_confusion_matrix.png")
         )
@@ -203,7 +241,7 @@ def run_experiments(args):
         plot_confusion_matrix(
             bitfit_results['test']['predictions'],
             bitfit_results['test']['labels'],
-            config.FLOWER_CLASSES,
+            config.PLANT_DISEASE_CLASSES,
             title="BitFit Fine-tuning - Test Set",
             save_path=os.path.join(config.RESULTS_DIR, "bitfit_confusion_matrix.png")
         )
@@ -230,7 +268,7 @@ def run_experiments(args):
         plot_confusion_matrix(
             prefix_results['test']['predictions'],
             prefix_results['test']['labels'],
-            config.FLOWER_CLASSES,
+            config.PLANT_DISEASE_CLASSES,
             title="Prefix-tuning - Test Set",
             save_path=os.path.join(config.RESULTS_DIR, "prefix_confusion_matrix.png")
         )
@@ -241,8 +279,10 @@ def run_experiments(args):
     print("="*70)
     
     all_results = {}
+    if knn_zero_shot_results is not None:
+        all_results[f'KNN Zero-Shot (k={args.k_neighbors})'] = knn_zero_shot_results
     if zero_shot_results is not None:
-        all_results['Zero-Shot'] = zero_shot_results
+        all_results['Text Zero-Shot'] = zero_shot_results
     if linear_probe_results is not None:
         all_results['Linear Probe'] = linear_probe_results
     if full_finetune_results is not None:
@@ -280,13 +320,26 @@ def run_experiments(args):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="CLIP experiments on Flowers102 dataset"
+        description="Foundation Model Fine-tuning on PlantVillage Crop Disease Dataset (Low-Data Regime)"
+    )
+    
+    parser.add_argument(
+        '--knn-zero-shot',
+        action='store_true',
+        help='Run KNN-based zero-shot evaluation'
+    )
+    
+    parser.add_argument(
+        '--k-neighbors',
+        type=int,
+        default=5,
+        help='Number of neighbors for KNN zero-shot (default: 5)'
     )
     
     parser.add_argument(
         '--zero-shot',
         action='store_true',
-        help='Run zero-shot evaluation'
+        help='Run text-based zero-shot evaluation'
     )
     
     parser.add_argument(
@@ -298,7 +351,7 @@ def main():
     parser.add_argument(
         '--all',
         action='store_true',
-        help='Run all experiments'
+        help='Run all experiments (including both zero-shot methods)'
     )
     
     parser.add_argument(
@@ -377,6 +430,7 @@ def main():
     
     # If --all is specified, run all experiments
     if args.all:
+        args.knn_zero_shot = True
         args.zero_shot = True
         args.linear_probe = True
         args.full_finetune = True
@@ -391,10 +445,10 @@ def main():
         args.prefix = True
     
     # If no experiment is specified, run basic experiments by default
-    if not any([args.zero_shot, args.linear_probe, args.full_finetune, 
+    if not any([args.knn_zero_shot, args.zero_shot, args.linear_probe, args.full_finetune, 
                 args.lora, args.bitfit, args.prefix]):
-        print("No experiment specified. Running zero-shot and linear probing by default.")
-        args.zero_shot = True
+        print("No experiment specified. Running KNN zero-shot and linear probing by default.")
+        args.knn_zero_shot = True
         args.linear_probe = True
     
     # Run experiments

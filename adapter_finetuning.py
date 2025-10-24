@@ -1,5 +1,5 @@
 """
-Adapter-based fine-tuning methods for CLIP on Flowers102 dataset
+Adapter-based fine-tuning methods for CLIP on PlantVillage dataset
 Includes: LoRA, BitFit, and Prefix-tuning
 """
 
@@ -15,7 +15,7 @@ import os
 import math
 
 import config
-from data_loader import get_flowers_dataloaders
+from data_loader import get_plantvillage_dataloaders
 
 
 # ============================================================================
@@ -687,7 +687,7 @@ def run_adapter_finetuning(adapter_type: str = "lora", lora_rank: int = 16, lora
     )
     
     # Get data loaders with CLIP preprocessing
-    train_loader, val_loader, test_loader = get_flowers_dataloaders(
+    train_loader, val_loader, test_loader = get_plantvillage_dataloaders(
         use_clip_transforms=True,
         clip_preprocess=finetuner.preprocess
     )
