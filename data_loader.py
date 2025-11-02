@@ -12,6 +12,20 @@ from collections import defaultdict
 import config
 
 
+def get_current_dataset_path():
+    """
+    Get the current dataset path from config
+    
+    Returns:
+        Dataset path string
+    """
+    if config.CURRENT_DATASET_PATH:
+        return config.CURRENT_DATASET_PATH
+    else:
+        # Default to plantvillage for backward compatibility
+        return "plantvillage/PlantVillage"
+
+
 def get_plantvillage_transforms(is_train: bool = True):
     """
     Get transforms for PlantVillage dataset
@@ -99,10 +113,11 @@ def get_plantvillage_dataloaders(
     use_clip_transforms: bool = False,
     clip_preprocess = None,
     use_limited_data: bool = config.USE_LIMITED_DATA,
-    samples_per_class: int = config.SAMPLES_PER_CLASS
+    samples_per_class: int = config.SAMPLES_PER_CLASS,
+    dataset_path: str = None
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-    Get train, validation, and test dataloaders for PlantVillage dataset
+    Get train, validation, and test dataloaders for any dataset
     
     Args:
         root: Root directory for dataset
@@ -112,14 +127,14 @@ def get_plantvillage_dataloaders(
         clip_preprocess: CLIP preprocessing function (required if use_clip_transforms=True)
         use_limited_data: Whether to use limited data (low-data regime)
         samples_per_class: Number of samples per class in limited mode
+        dataset_path: Custom dataset path (overrides default)
     
     Returns:
         Tuple of (train_loader, val_loader, test_loader)
     """
     
     # Create data directory if it doesn't exist
-    data_path = os.path.join(root, "plantvillage")
-    os.makedirs(data_path, exist_ok=True)
+    os.makedirs(root, exist_ok=True)
     
     if use_clip_transforms:
         if clip_preprocess is None:
@@ -131,27 +146,35 @@ def get_plantvillage_dataloaders(
         test_transform = get_plantvillage_transforms(is_train=False)
     
     # Load full dataset using ImageFolder
-    # PlantVillage dataset should be organized in class folders
-    full_dataset_path = os.path.join(data_path, "PlantVillage")
+    # Use custom path if provided, otherwise use current dataset from config
+    if dataset_path:
+        full_dataset_path = os.path.join(root, dataset_path)
+    else:
+        full_dataset_path = os.path.join(root, get_current_dataset_path())
     
     # Check if dataset exists
     if not os.path.exists(full_dataset_path):
         print(f"\n{'='*70}")
-        print("PLANTVILLAGE DATASET NOT FOUND")
+        print("DATASET NOT FOUND")
         print(f"{'='*70}")
         print(f"Expected location: {full_dataset_path}")
-        print("\nPlease download the PlantVillage dataset:")
-        print("1. Visit: https://www.kaggle.com/datasets/emmarex/plantdisease")
-        print("2. Download and extract to: {data_path}")
-        print("3. Ensure structure: PlantVillage/class_name/*.jpg")
+        print("\nPlease download the dataset and extract to the correct location")
+        print("Ensure structure: dataset_path/class_name/*.jpg")
+        if config.CURRENT_DATASET and config.CURRENT_DATASET in config.AVAILABLE_DATASETS:
+            dataset_info = config.AVAILABLE_DATASETS[config.CURRENT_DATASET]
+            print(f"\nDataset URL: {dataset_info['url']}")
         print(f"{'='*70}\n")
-        raise FileNotFoundError(f"PlantVillage dataset not found at {full_dataset_path}")
+        raise FileNotFoundError(f"Dataset not found at {full_dataset_path}")
     
     # Load the full dataset
     full_dataset = datasets.ImageFolder(
         root=full_dataset_path,
         transform=train_transform
     )
+    
+    # Update config with class names
+    config.PLANT_DISEASE_CLASSES = full_dataset.classes
+    print(f"\nDetected {len(full_dataset.classes)} classes in the dataset")
     
     # Create train/val/test splits (70/15/15)
     num_samples = len(full_dataset)

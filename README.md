@@ -1,10 +1,10 @@
-# Foundation Model Fine-tuning on PlantVillage Dataset
+# Foundation Model Fine-tuning on Multiple Datasets
 
 **Project Focus**: Efficient fine-tuning of foundation models (CLIP, DINOv2, ViT) for domain-specific image classification in low-data regimes.
 
 ## Overview
 
-This project investigates how to efficiently fine-tune foundation models to perform high-accuracy classification in specialized domains with limited labeled data. We use the **PlantVillage Crop Disease Dataset** to evaluate various fine-tuning strategies, balancing performance with computational and parameter efficiency.
+This project investigates how to efficiently fine-tune foundation models to perform high-accuracy classification in specialized domains with limited labeled data. We support **multiple datasets** including PlantVillage, NEU Surface Defect, Semiconductor Wafer, PCB Defect, and more to evaluate various fine-tuning strategies across different domains.
 
 ### Problem Statement
 
@@ -12,8 +12,9 @@ Foundation models like CLIP excel at general-purpose tasks but often struggle wi
 
 ### Key Features
 
-- **Domain-Specific Task**: Plant disease classification (38 classes)
-- **Low-Data Regime**: 50 samples per class (~1,900 training images)
+- **Multiple Datasets Supported**: Easy selection between 5+ different datasets
+- **Interactive Dataset Selection**: Choose your dataset when running experiments
+- **Low-Data Regime**: Configurable samples per class (default: 50)
 - **Multiple Fine-tuning Strategies**: Zero-shot, linear probing, full fine-tuning, and adapter methods
 - **Parameter Efficiency Analysis**: Compare trainable parameters vs. performance
 - **Comprehensive Evaluation**: Metrics, visualizations, and comparative analysis
@@ -41,10 +42,10 @@ tpa-17/
 ├── main.py                   # Main experiment runner
 ├── requirements.txt          # Dependencies
 ├── README.md                 # Project overview & usage guide
-├── DATASET_SETUP.md          # PlantVillage dataset setup guide
+├── DATASET_SELECTION.md      # Dataset selection guide
+├── DATASET_SETUP.md          # Dataset setup instructions
 ├── PROJECT_SUMMARY.md        # Technical documentation
-├── GETTING_STARTED.md        # Step-by-step guide
-└── requirements.txt          # Dependencies
+└── GETTING_STARTED.md        # Step-by-step guide
 ```
 
 ## Quick Start
@@ -57,36 +58,55 @@ pip install -r requirements.txt
 
 ### 2. Download Dataset
 
-**See [DATASET_SETUP.md](DATASET_SETUP.md) for detailed instructions.**
+**See [DATASET_SELECTION.md](DATASET_SELECTION.md) for available datasets and setup instructions.**
 
 Quick steps:
-1. Download PlantVillage dataset from [Kaggle](https://www.kaggle.com/datasets/emmarex/plantdisease)
-2. Extract to: `./data/plantvillage/PlantVillage/`
-3. Verify structure: `PlantVillage/class_name/*.jpg`
+1. Choose a dataset from the available options (PlantVillage, NEU Surface Defect, etc.)
+2. Download from Kaggle (links provided in DATASET_SELECTION.md)
+3. Extract to the appropriate location in `./data/`
+4. Verify structure: `dataset_name/class_name/*.jpg`
 
 ### 3. Run Experiments
 
+#### Interactive Mode (Recommended)
 ```bash
-# Run all experiments
-python main.py --all
-
-# Or run specific methods
-python main.py --zero-shot --linear-probe
+# You'll be prompted to select a dataset
+python main.py --knn-zero-shot
 ```
 
-## Dataset: PlantVillage
+#### Command Line Mode
+```bash
+# Use PlantVillage dataset (option 1)
+python main.py --dataset 1 --all
 
-### Why PlantVillage?
+# Use NEU Surface Defect dataset (option 2)
+python main.py --dataset 2 --linear-probe
 
-1. **Domain Shift**: Agricultural disease detection is distinct from web-scale pre-training data
-2. **Real-World Application**: Practical impact in agriculture and food security
-3. **Complexity**: 38 disease classes across multiple crops
-4. **Low-Data Scenario**: Simulates realistic expert-labeled data scarcity
+# Use specific dataset with specific methods
+python main.py --dataset 4 --lora --bitfit
+```
 
-### Dataset Statistics
+## Supported Datasets
 
-- **Classes**: 38 (plant diseases + healthy plants)
-- **Low-Data Regime**: 50 samples per class
+1. **PlantVillage Plant Disease** - Agricultural disease classification
+2. **NEU Surface Defect Database** - Steel surface defect detection
+3. **Goldenhar CFID** - Medical imaging dataset
+4. **Semiconductor Wafer** - Wafer defect classification
+5. **PCB Defect** - PCB defect detection
+
+See [DATASET_SELECTION.md](DATASET_SELECTION.md) for complete details, download links, and setup instructions.
+
+## Why Multiple Datasets?
+
+1. **Generalization**: Test fine-tuning strategies across different domains
+2. **Domain Shift**: Each dataset has unique characteristics and domain gaps
+3. **Real-World Applications**: Covers medical, industrial, and agricultural use cases
+4. **Flexibility**: Easy to add and experiment with new datasets
+
+### Low-Data Regime
+
+- **Default**: 50 samples per class (configurable in config.py)
+- **Purpose**: Simulates realistic expert-labeled data scarcity
 - **Training Set**: ~1,900 images (with limitation)
 - **Validation Set**: ~11,400 images (15% of full data)
 - **Test Set**: ~11,400 images (15% of full data)
