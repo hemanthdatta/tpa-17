@@ -1,15 +1,82 @@
 """
-Data loader for PlantVillage dataset with low-data regime support
+Data loader for multiple datasets with low-data regime support
+Supports both ImageFolder and CSV-based dataset formats
 """
 
 import os
 import torch
+import pandas as pd
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import datasets, transforms
 from typing import Tuple, Optional
 import numpy as np
 from collections import defaultdict
+from PIL import Image
 import config
+
+
+class CSVDataset(Dataset):
+    """
+    Custom Dataset for CSV-based datasets (like Aircraft)
+    
+    CSV Format:
+        - filename: image file name
+        - Classes: class name (e.g., '707-320', 'A318')
+        - Labels: categorical value (0-99 for 100 classes)
+    """
+    def __init__(self, csv_file: str, root_dir: str, transform=None, class_to_idx=None):
+        """
+        Args:
+            csv_file: Path to CSV file
+            root_dir: Root directory with images
+            transform: Transforms to apply to images
+            class_to_idx: Optional dictionary mapping class names to indices
+        """
+        self.data_frame = pd.read_csv(csv_file)
+        self.root_dir = root_dir
+        self.transform = transform
+        
+        # Get unique classes and create mapping if not provided
+        if class_to_idx is None:
+            unique_classes = sorted(self.data_frame['Classes'].unique())
+            self.class_to_idx = {cls: idx for idx, cls in enumerate(unique_classes)}
+            self.classes = unique_classes
+        else:
+            self.class_to_idx = class_to_idx
+            self.classes = [cls for cls, _ in sorted(class_to_idx.items(), key=lambda x: x[1])]
+        
+        self.idx_to_class = {idx: cls for cls, idx in self.class_to_idx.items()}
+    
+    def __len__(self):
+        return len(self.data_frame)
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        # Get image filename and label
+        img_name = os.path.join(self.root_dir, self.data_frame.iloc[idx]['filename'])
+        
+        # Use 'Labels' column if available, otherwise map from 'Classes'
+        if 'Labels' in self.data_frame.columns:
+            label = int(self.data_frame.iloc[idx]['Labels'])
+        else:
+            class_name = self.data_frame.iloc[idx]['Classes']
+            label = self.class_to_idx[class_name]
+        
+        # Load image
+        try:
+            image = Image.open(img_name).convert('RGB')
+        except Exception as e:
+            print(f"Error loading image {img_name}: {e}")
+            # Return a blank image if loading fails
+            image = Image.new('RGB', (224, 224), (0, 0, 0))
+        
+        # Apply transforms
+        if self.transform:
+            image = self.transform(image)
+        
+        return image, label
 
 
 def get_current_dataset_path():
@@ -106,7 +173,7 @@ def create_limited_dataset(dataset, samples_per_class: int, seed: int = 42):
     return Subset(dataset, selected_indices)
 
 
-def get_plantvillage_dataloaders(
+def get_csv_dataloaders(
     root: str = config.DATA_ROOT,
     batch_size: int = config.BATCH_SIZE,
     num_workers: int = config.NUM_WORKERS,
@@ -117,7 +184,7 @@ def get_plantvillage_dataloaders(
     dataset_path: str = None
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-    Get train, validation, and test dataloaders for any dataset
+    Get train, validation, and test dataloaders for CSV-based datasets (like Aircraft)
     
     Args:
         root: Root directory for dataset
@@ -133,6 +200,204 @@ def get_plantvillage_dataloaders(
         Tuple of (train_loader, val_loader, test_loader)
     """
     
+    # Create data directory if it doesn't exist
+    os.makedirs(root, exist_ok=True)
+    
+    # Get dataset configuration
+    dataset_info = config.AVAILABLE_DATASETS[config.CURRENT_DATASET]
+    csv_files = dataset_info['csv_files']
+    
+    # Set up transforms
+    if use_clip_transforms:
+        if clip_preprocess is None:
+            raise ValueError("clip_preprocess must be provided when use_clip_transforms=True")
+        train_transform = clip_preprocess
+        test_transform = clip_preprocess
+    else:
+        train_transform = get_plantvillage_transforms(is_train=True)
+        test_transform = get_plantvillage_transforms(is_train=False)
+    
+    # Set up dataset path
+    if dataset_path:
+        full_dataset_path = os.path.join(root, dataset_path)
+    else:
+        full_dataset_path = os.path.join(root, get_current_dataset_path())
+    
+    # Check if dataset directory exists
+    if not os.path.exists(full_dataset_path):
+        print(f"\n{'='*70}")
+        print("DATASET NOT FOUND")
+        print(f"{'='*70}")
+        print(f"Expected location: {full_dataset_path}")
+        print(f"\nDataset URL: {dataset_info['url']}")
+        print("\nFor CSV-based datasets, ensure:")
+        print("  1. Images are in the dataset folder")
+        print("  2. CSV files (train.csv, val.csv, test.csv) are present")
+        print("  3. CSV has columns: filename, Classes, Labels")
+        print(f"{'='*70}\n")
+        raise FileNotFoundError(f"Dataset not found at {full_dataset_path}")
+    
+    # Check for CSV files
+    train_csv = os.path.join(full_dataset_path, csv_files['train'])
+    val_csv = os.path.join(full_dataset_path, csv_files['val'])
+    test_csv = os.path.join(full_dataset_path, csv_files['test'])
+    
+    if not all(os.path.exists(f) for f in [train_csv, val_csv, test_csv]):
+        print(f"\n{'='*70}")
+        print("CSV FILES NOT FOUND")
+        print(f"{'='*70}")
+        print(f"Expected files:")
+        print(f"  - {train_csv}")
+        print(f"  - {val_csv}")
+        print(f"  - {test_csv}")
+        print(f"{'='*70}\n")
+        raise FileNotFoundError("Required CSV files not found")
+    
+    # Load train dataset to get class mapping
+    train_dataset_full = CSVDataset(
+        csv_file=train_csv,
+        root_dir=full_dataset_path,
+        transform=train_transform
+    )
+    
+    # Use the same class mapping for all splits
+    class_to_idx = train_dataset_full.class_to_idx
+    classes = train_dataset_full.classes
+    
+    # Update config with class names
+    config.PLANT_DISEASE_CLASSES = classes
+    print(f"\nDetected {len(classes)} classes in the dataset")
+    
+    # Apply limited data regime to training set if enabled
+    if use_limited_data:
+        print(f"\n{'='*70}")
+        print(f"LOW-DATA REGIME ENABLED: {samples_per_class} samples per class")
+        print(f"{'='*70}")
+        
+        # Create a temporary dataset without transforms for limiting
+        temp_train = CSVDataset(
+            csv_file=train_csv,
+            root_dir=full_dataset_path,
+            transform=None,
+            class_to_idx=class_to_idx
+        )
+        
+        # Create limited training set
+        limited_train_subset = create_limited_dataset(
+            temp_train,
+            samples_per_class=samples_per_class
+        )
+        
+        # Get the actual indices
+        limited_indices = limited_train_subset.indices
+        
+        # Create final training dataset with transforms
+        train_dataset = CSVDataset(
+            csv_file=train_csv,
+            root_dir=full_dataset_path,
+            transform=train_transform,
+            class_to_idx=class_to_idx
+        )
+        train_dataset = Subset(train_dataset, limited_indices)
+    else:
+        train_dataset = train_dataset_full
+    
+    # Load validation and test datasets
+    val_dataset = CSVDataset(
+        csv_file=val_csv,
+        root_dir=full_dataset_path,
+        transform=test_transform,
+        class_to_idx=class_to_idx
+    )
+    
+    test_dataset = CSVDataset(
+        csv_file=test_csv,
+        root_dir=full_dataset_path,
+        transform=test_transform,
+        class_to_idx=class_to_idx
+    )
+    
+    # Create dataloaders
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True if torch.cuda.is_available() else False
+    )
+    
+    print(f"\nDataset loaded successfully (CSV-based):")
+    print(f"  Total classes: {len(classes)}")
+    print(f"  Train: {len(train_dataset)} images")
+    print(f"  Val: {len(val_dataset)} images")
+    print(f"  Test: {len(test_dataset)} images")
+    if use_limited_data:
+        print(f"  Low-data regime: {samples_per_class} samples/class")
+    
+    return train_loader, val_loader, test_loader
+
+
+def get_plantvillage_dataloaders(
+    root: str = config.DATA_ROOT,
+    batch_size: int = config.BATCH_SIZE,
+    num_workers: int = config.NUM_WORKERS,
+    use_clip_transforms: bool = False,
+    clip_preprocess = None,
+    use_limited_data: bool = config.USE_LIMITED_DATA,
+    samples_per_class: int = config.SAMPLES_PER_CLASS,
+    dataset_path: str = None
+) -> Tuple[DataLoader, DataLoader, DataLoader]:
+    """
+    Get train, validation, and test dataloaders for any dataset
+    Supports both ImageFolder and CSV-based datasets
+    
+    Args:
+        root: Root directory for dataset
+        batch_size: Batch size for dataloaders
+        num_workers: Number of worker processes for data loading
+        use_clip_transforms: Whether to use CLIP's preprocessing transforms
+        clip_preprocess: CLIP preprocessing function (required if use_clip_transforms=True)
+        use_limited_data: Whether to use limited data (low-data regime)
+        samples_per_class: Number of samples per class in limited mode
+        dataset_path: Custom dataset path (overrides default)
+    
+    Returns:
+        Tuple of (train_loader, val_loader, test_loader)
+    """
+    
+    # Check if current dataset uses CSV format
+    dataset_info = None
+    if config.CURRENT_DATASET and config.CURRENT_DATASET in config.AVAILABLE_DATASETS:
+        dataset_info = config.AVAILABLE_DATASETS[config.CURRENT_DATASET]
+        if dataset_info.get('use_csv', False):
+            return get_csv_dataloaders(
+                root=root,
+                batch_size=batch_size,
+                num_workers=num_workers,
+                use_clip_transforms=use_clip_transforms,
+                clip_preprocess=clip_preprocess,
+                use_limited_data=use_limited_data,
+                samples_per_class=samples_per_class,
+                dataset_path=dataset_path
+            )
+    
+    # Original ImageFolder-based loading
     # Create data directory if it doesn't exist
     os.makedirs(root, exist_ok=True)
     

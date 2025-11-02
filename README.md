@@ -93,8 +93,11 @@ python main.py --dataset 4 --lora --bitfit
 3. **Goldenhar CFID** - Medical imaging dataset
 4. **Semiconductor Wafer** - Wafer defect classification
 5. **PCB Defect** - PCB defect detection
+6. **Aircraft Recognition** - Aircraft variant classification (100 classes)
 
 See [DATASET_SELECTION.md](DATASET_SELECTION.md) for complete details, download links, and setup instructions.
+
+**NEW**: See [AIRCRAFT_DATASET.md](AIRCRAFT_DATASET.md) for aircraft dataset specific documentation.
 
 ## Why Multiple Datasets?
 
