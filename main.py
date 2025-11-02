@@ -52,7 +52,7 @@ def select_dataset():
     
     while True:
         try:
-            choice = input("\nSelect a dataset (1-5): ").strip()
+            choice = input("\nSelect a dataset (1-6): ").strip()
             if choice in config.AVAILABLE_DATASETS:
                 selected = config.AVAILABLE_DATASETS[choice]
                 print(f"\n✓ Selected: {selected['display_name']}")
@@ -64,7 +64,7 @@ def select_dataset():
                 
                 return choice
             else:
-                print("Invalid choice. Please select a number between 1 and 5.")
+                print("Invalid choice. Please select a number between 1 and 6.")
         except KeyboardInterrupt:
             print("\n\nDataset selection cancelled.")
             exit(0)

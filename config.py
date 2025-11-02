@@ -50,6 +50,30 @@ AVAILABLE_DATASETS = {
         "path": "pcb_defect",
         "url": "https://www.kaggle.com/datasets/breaddddd/pcb-defect-modified",
         "classes": None  # Will be auto-detected
+    },
+    "6": {
+        "name": "aircraft",
+        "display_name": "Aircraft Recognition (100 Variants)",
+        "path": "aircraft",
+        "url": "https://www.kaggle.com/datasets/aircraft",
+        "classes": 100,  # 100 variant classes
+        "num_train": 3334,
+        "num_val": 3333,
+        "num_test": 3333,
+        "total_images": 10000,
+        "use_csv": True,  # Uses CSV files for splits
+        "csv_files": {
+            "train": "train.csv",
+            "val": "val.csv",
+            "test": "test.csv"
+        },
+        "hierarchy": {
+            "levels": ["Model", "Variant", "Family", "Manufacturer"],
+            "num_variants": 100,
+            "num_families": 70,
+            "num_manufacturers": 41,
+            "classification_level": "Variant"  # Using Variant (100 classes)
+        }
     }
 }
 
@@ -87,3 +111,37 @@ TEXT_TEMPLATES = [
     "{} in the image.",
     "a clear photo of a {}.",
 ]
+
+# Dataset-specific text templates
+DATASET_TEMPLATES = {
+    "aircraft": [
+        "a photo of a {} aircraft.",
+        "a photo of a {} airplane.",
+        "an image of a {} aircraft.",
+        "a {} aircraft in flight.",
+        "a clear photo of a {} aircraft.",
+        "a side view of a {} aircraft.",
+    ],
+    "plantvillage": [
+        "a photo of a {}.",
+        "a leaf affected by {}.",
+        "a plant with {}.",
+        "symptoms of {}.",
+        "a clear photo of {}.",
+    ],
+    "neu_surface_defect": [
+        "a photo of {} defect.",
+        "a surface with {}.",
+        "an image of {} on metal.",
+        "{} defect on steel surface.",
+        "a clear image of {}.",
+    ],
+    "default": TEXT_TEMPLATES
+}
+
+def get_text_templates():
+    """Get appropriate text templates for the current dataset"""
+    if DATASET_NAME in DATASET_TEMPLATES:
+        return DATASET_TEMPLATES[DATASET_NAME]
+    return DATASET_TEMPLATES["default"]
+

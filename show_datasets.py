@@ -23,19 +23,37 @@ def show_datasets():
         print(f"   └─ Path: ./data/{dataset['path']}")
         print(f"   └─ Kaggle URL: {dataset['url']}")
         
+        # Show additional info for special datasets
+        if dataset.get('use_csv'):
+            print(f"   └─ Format: CSV-based dataset")
+            if 'classes' in dataset and dataset['classes']:
+                print(f"   └─ Classes: {dataset['classes']}")
+        
         # Check if dataset exists
         dataset_path = os.path.join(config.DATA_ROOT, dataset['path'])
         if os.path.exists(dataset_path):
             print(f"   └─ Status: ✅ INSTALLED")
-            try:
-                # Try to count folders (classes)
-                if os.path.isdir(dataset_path):
-                    classes = [d for d in os.listdir(dataset_path) 
-                              if os.path.isdir(os.path.join(dataset_path, d))]
-                    if classes:
-                        print(f"   └─ Classes: {len(classes)} detected")
-            except:
-                pass
+            
+            # For CSV datasets, check for CSV files
+            if dataset.get('use_csv'):
+                csv_files = dataset.get('csv_files', {})
+                csv_found = []
+                for split, filename in csv_files.items():
+                    csv_path = os.path.join(dataset_path, filename)
+                    if os.path.exists(csv_path):
+                        csv_found.append(split)
+                if csv_found:
+                    print(f"   └─ CSV files: {', '.join(csv_found)}")
+            else:
+                # For ImageFolder datasets, count classes
+                try:
+                    if os.path.isdir(dataset_path):
+                        classes = [d for d in os.listdir(dataset_path) 
+                                  if os.path.isdir(os.path.join(dataset_path, d))]
+                        if classes:
+                            print(f"   └─ Classes: {len(classes)} detected")
+                except:
+                    pass
         else:
             print(f"   └─ Status: ❌ NOT INSTALLED")
     
