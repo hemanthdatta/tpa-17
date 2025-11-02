@@ -31,17 +31,63 @@ from utils import (
 )
 
 
+def select_dataset():
+    """
+    Interactive dataset selection
+    
+    Returns:
+        Selected dataset key
+    """
+    print("\n" + "="*70)
+    print("AVAILABLE DATASETS")
+    print("="*70)
+    
+    for key, dataset_info in config.AVAILABLE_DATASETS.items():
+        print(f"{key}. {dataset_info['display_name']}")
+        print(f"   URL: {dataset_info['url']}")
+        print(f"   Path: {dataset_info['path']}")
+        print()
+    
+    print("="*70)
+    
+    while True:
+        try:
+            choice = input("\nSelect a dataset (1-5): ").strip()
+            if choice in config.AVAILABLE_DATASETS:
+                selected = config.AVAILABLE_DATASETS[choice]
+                print(f"\n✓ Selected: {selected['display_name']}")
+                
+                # Update config
+                config.CURRENT_DATASET = choice
+                config.DATASET_NAME = selected['name']
+                config.CURRENT_DATASET_PATH = selected['path']
+                
+                return choice
+            else:
+                print("Invalid choice. Please select a number between 1 and 5.")
+        except KeyboardInterrupt:
+            print("\n\nDataset selection cancelled.")
+            exit(0)
+        except Exception as e:
+            print(f"Error: {e}. Please try again.")
+
+
 def run_experiments(args):
     """
-    Run CLIP experiments on PlantVillage Crop Disease dataset
+    Run CLIP experiments on selected dataset
     
     Args:
         args: Command line arguments
     """
+    # Get dataset info
+    dataset_info = config.AVAILABLE_DATASETS[config.CURRENT_DATASET]
+    
     print("\n" + "="*70)
-    print("CLIP EXPERIMENTS ON PLANTVILLAGE CROP DISEASE DATASET")
+    print(f"CLIP EXPERIMENTS ON {dataset_info['display_name'].upper()}")
     print("="*70)
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Dataset: {dataset_info['display_name']}")
+    print(f"Dataset Path: {dataset_info['path']}")
     print(f"Model: {config.CLIP_MODEL}")
     print(f"Pretrained: {config.CLIP_PRETRAINED}")
     if config.USE_LIMITED_DATA:
@@ -320,7 +366,14 @@ def run_experiments(args):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Foundation Model Fine-tuning on PlantVillage Crop Disease Dataset (Low-Data Regime)"
+        description="Foundation Model Fine-tuning on Multiple Datasets (Low-Data Regime)"
+    )
+    
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        choices=['1', '2', '3', '4', '5'],
+        help='Dataset to use (1=PlantVillage, 2=NEU Surface Defect, 3=Goldenhar CFID, 4=Semiconductor Wafer, 5=PCB Defect)'
     )
     
     parser.add_argument(
@@ -420,6 +473,22 @@ def main():
     )
     
     args = parser.parse_args()
+    
+    # Dataset selection
+    if args.dataset:
+        # Use dataset from command line argument
+        if args.dataset in config.AVAILABLE_DATASETS:
+            config.CURRENT_DATASET = args.dataset
+            selected = config.AVAILABLE_DATASETS[args.dataset]
+            config.DATASET_NAME = selected['name']
+            config.CURRENT_DATASET_PATH = selected['path']
+            print(f"\n✓ Using dataset: {selected['display_name']}")
+        else:
+            print(f"Error: Invalid dataset selection '{args.dataset}'")
+            exit(1)
+    else:
+        # Interactive dataset selection
+        select_dataset()
     
     # Update config with command line arguments
     config.CLIP_MODEL = args.model

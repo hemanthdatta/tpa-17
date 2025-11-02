@@ -10,9 +10,52 @@ CLIP_PRETRAINED = "laion2b_s34b_b79k"  # Pre-trained weights
 
 # Data Configuration
 DATA_ROOT = "./data"
-DATASET_NAME = "plantvillage"
+DATASET_NAME = "plantvillage"  # Will be set dynamically
 BATCH_SIZE = 32
 NUM_WORKERS = 4
+
+# Available Datasets Configuration
+AVAILABLE_DATASETS = {
+    "1": {
+        "name": "plantvillage",
+        "display_name": "PlantVillage Plant Disease",
+        "path": "plantvillage/PlantVillage",
+        "url": "https://www.kaggle.com/datasets/emmarex/plantdisease",
+        "classes": None  # Will be auto-detected
+    },
+    "2": {
+        "name": "neu_surface_defect",
+        "display_name": "NEU Surface Defect Database",
+        "path": "neu_surface_defect",
+        "url": "https://www.kaggle.com/datasets/kaustubhdikshit/neu-surface-defect-database",
+        "classes": None  # Will be auto-detected
+    },
+    "3": {
+        "name": "goldenhar_cfid",
+        "display_name": "Goldenhar CFID",
+        "path": "goldenhar_cfid",
+        "url": "https://www.kaggle.com/datasets/isratjahan123/goldenhar-cfid",
+        "classes": None  # Will be auto-detected
+    },
+    "4": {
+        "name": "semiconductor_wafer",
+        "display_name": "Multi-Class Semiconductor Wafer Image Dataset",
+        "path": "semiconductor_wafer",
+        "url": "https://www.kaggle.com/datasets/drtawfikrahman/multi-class-semiconductor-wafer-image-dataset",
+        "classes": None  # Will be auto-detected
+    },
+    "5": {
+        "name": "pcb_defect",
+        "display_name": "PCB Defect (Modified)",
+        "path": "pcb_defect",
+        "url": "https://www.kaggle.com/datasets/breaddddd/pcb-defect-modified",
+        "classes": None  # Will be auto-detected
+    }
+}
+
+# Current dataset (will be set at runtime)
+CURRENT_DATASET = None
+CURRENT_DATASET_PATH = None
 
 # Low-data regime configuration (for domain-specific fine-tuning)
 # This simulates limited labeled data scenario as per project requirements
@@ -33,53 +76,14 @@ RESULTS_DIR = "./results"
 SAVE_CHECKPOINT = True
 
 # Zero-shot Configuration
-# PlantVillage disease class names
-PLANT_DISEASE_CLASSES = [
-    "Apple scab",
-    "Apple Black rot",
-    "Apple Cedar apple rust",
-    "Apple healthy",
-    "Blueberry healthy",
-    "Cherry Powdery mildew",
-    "Cherry healthy",
-    "Corn Cercospora leaf spot Gray leaf spot",
-    "Corn Common rust",
-    "Corn Northern Leaf Blight",
-    "Corn healthy",
-    "Grape Black rot",
-    "Grape Esca (Black Measles)",
-    "Grape Leaf blight (Isariopsis Leaf Spot)",
-    "Grape healthy",
-    "Orange Haunglongbing (Citrus greening)",
-    "Peach Bacterial spot",
-    "Peach healthy",
-    "Pepper bell Bacterial spot",
-    "Pepper bell healthy",
-    "Potato Early blight",
-    "Potato Late blight",
-    "Potato healthy",
-    "Raspberry healthy",
-    "Soybean healthy",
-    "Squash Powdery mildew",
-    "Strawberry Leaf scorch",
-    "Strawberry healthy",
-    "Tomato Bacterial spot",
-    "Tomato Early blight",
-    "Tomato Late blight",
-    "Tomato Leaf Mold",
-    "Tomato Septoria leaf spot",
-    "Tomato Spider mites Two-spotted spider mite",
-    "Tomato Target Spot",
-    "Tomato Tomato Yellow Leaf Curl Virus",
-    "Tomato Tomato mosaic virus",
-    "Tomato healthy"
-]
+# Class names (will be auto-detected from dataset or set dynamically)
+PLANT_DISEASE_CLASSES = []
 
-# Text templates for zero-shot classification (agriculture/disease context)
+# Text templates for zero-shot classification (generic for any dataset)
 TEXT_TEMPLATES = [
     "a photo of a {}.",
-    "a photo of a plant leaf with {}.",
-    "a plant disease: {}.",
-    "{} on plant leaves.",
-    "agricultural crop with {}.",
+    "a photo of {}.",
+    "an image of {}.",
+    "{} in the image.",
+    "a clear photo of a {}.",
 ]
